@@ -70,7 +70,7 @@ require (
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20191021212636-83b2e9505286
 	github.com/gravitational/roundtrip v1.0.0
-	github.com/gravitational/satellite v0.0.9-0.20200413193155-d7a2a93a8ed5
+	github.com/gravitational/satellite v0.0.9-0.20200605173251-9509c0a8414b
 	github.com/gravitational/tail v1.0.1
 	github.com/gravitational/teleport v3.2.15-0.20200309221853-bebf7a500543+incompatible
 	github.com/gravitational/trace v1.1.10-0.20200326194303-2d27a078e25b
@@ -95,6 +95,7 @@ require (
 	github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
 	github.com/lib/pq v1.2.0 // indirect
+	github.com/magefile/mage v1.9.0 // indirect
 	github.com/mailgun/holster v1.9.1-0.20191129074427-2296d2fb30b1 // indirect
 	github.com/mailgun/lemma v0.0.0-20160211003854-e8b0cd607f58
 	github.com/mailgun/metrics v0.0.0-20150124003306-2b3c4565aafd // indirect

@@ -425,6 +425,8 @@ github.com/gravitational/satellite v0.0.9-0.20200205225625-d2c1e14945c2 h1:v8smS
 github.com/gravitational/satellite v0.0.9-0.20200205225625-d2c1e14945c2/go.mod h1:RiHX/L4H5HoTN/DeWses6RP9PqYujezJOlVmU8WcLwY=
 github.com/gravitational/satellite v0.0.9-0.20200413193155-d7a2a93a8ed5 h1:F4OgpxKAnt6JA5+uWPmWALGSqkRbc4Awfr1HYx31OrE=
 github.com/gravitational/satellite v0.0.9-0.20200413193155-d7a2a93a8ed5/go.mod h1:RiHX/L4H5HoTN/DeWses6RP9PqYujezJOlVmU8WcLwY=
+github.com/gravitational/satellite v0.0.9-0.20200605173251-9509c0a8414b h1:FjBn4Z02k/HLDLRnJ3NYZ87JnkAqL9ESpdEom6QBUIQ=
+github.com/gravitational/satellite v0.0.9-0.20200605173251-9509c0a8414b/go.mod h1:RiHX/L4H5HoTN/DeWses6RP9PqYujezJOlVmU8WcLwY=
 github.com/gravitational/tail v1.0.1 h1:Yv5nh+zV0yHQ9D9kXGEOFpUoA+Ti5uXHwOGioKSIeng=
 github.com/gravitational/tail v1.0.1/go.mod h1:3aRU+xPwNCaXykBn4jhiXsSJXX7jalcZtvCYGckNbPw=
 github.com/gravitational/teleport v3.2.15-0.20200110233851-f4445fa60013+incompatible h1:zXwIbEof+bTDqbYW97fZe7BWEuHa7ccrNe2PcMt8kYU=
@@ -586,6 +588,8 @@ github.com/lightstep/lightstep-tracer-go v0.15.6/go.mod h1:6AMpwZpsyCFwSovxzM78e
 github.com/lithammer/dedent v1.1.0/go.mod h1:jrXYCQtgg0nJiN+StA2KgR7w6CiQNv9Fd/Z9BP0jIOc=
 github.com/lovoo/gcloud-opentracing v0.3.0/go.mod h1:ZFqk2y38kMDDikZPAK7ynTTGuyt17nSPdS3K5e+ZTBY=
 github.com/lpabon/godbc v0.1.1/go.mod h1:Jo9QV0cf3U6jZABgiJ2skINAXb9j8m51r07g4KI92ZA=
+github.com/magefile/mage v1.9.0 h1:t3AU2wNwehMCW97vuqQLtw6puppWXHO+O2MHo5a50XE=
+github.com/magefile/mage v1.9.0/go.mod h1:z5UZb/iS3GoOSn0JgWuiw7dxlurVYTu+/jHXqQg881A=
 github.com/magiconair/properties v0.0.0-20160816085511-61b492c03cf4/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/mailgun/holster v1.9.1-0.20191129074427-2296d2fb30b1 h1:PzQSy3FfT+QTquoO1B9RmCRgDNqFlCriHLBDoXBsNOA=
 github.com/mailgun/holster v1.9.1-0.20191129074427-2296d2fb30b1/go.mod h1:PhMbv/IkLqvvSHbQIo4L3S++elQX8BSCymc+IJZstCI=
