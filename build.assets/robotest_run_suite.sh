@@ -15,6 +15,9 @@ UPGRADE_MAP[6.1.24]="ubuntu:18"
 # latest patch release on supported non-LTS version, keep this up to date
 UPGRADE_MAP[6.3.13]="ubuntu:18"
 
+# latest patch release on previous compatible LTS, keep this up to date
+UPGRADE_MAP[5.5.47]="ubuntu:16"
+
 # important versions in the field, these are static
 UPGRADE_MAP[6.1.0]="ubuntu:16"
 # UPGRADE_MAP[6.3.0]="ubuntu:16"  # disabled due to https://github.com/gravitational/gravity/issues/1009

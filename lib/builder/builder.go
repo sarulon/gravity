@@ -27,7 +27,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	blobfs "github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/constants"
@@ -93,6 +93,8 @@ type Config struct {
 	logrus.FieldLogger
 	// Progress allows builder to report build progress
 	utils.Progress
+	// UpgradeVia lists intermediate runtime versions to embed
+	UpgradeVia []string
 }
 
 // CheckAndSetDefaults validates builder config and fills in defaults
@@ -192,9 +194,14 @@ func New(config Config) (*Builder, error) {
 				trace.Unwrap(err)) // show original parsing error
 		}
 	}
+	runtimeVersions, err := parseVersions(config.UpgradeVia)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	b := &Builder{
 		Config:   config,
 		Manifest: *manifest,
+		UpgradeVia: runtimeVersions,
 	}
 	err = b.initServices()
 	if err != nil {
@@ -221,7 +228,9 @@ type Builder struct {
 	// as a 'read-write' layer
 	Packages pack.PackageService
 	// Apps is the application service based on the layered package service
-	Apps app.Applications
+	Apps libapp.Applications
+	// UpgradeVia lists intermediate runtime versions to embed in the resulting installer
+	UpgradeVia []semver.Version
 }
 
 // Locator returns locator of the application that's being built
