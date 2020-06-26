@@ -23,7 +23,10 @@ func NewServices(params fsm.ExecutorParams, logger log.FieldLogger) (*Services, 
 	}, nil
 }
 
-// Execute creates alias DNS services in the new service subnet
+// Execute reset the clusterIP for all the cluster services of type ClusterIP
+// except DNS services. For DNS, it will create a duplicate DNS service for each node role
+// using the new service subnet to avoid disrupting Pods running on nodes that have
+// not yet been upgraded and still have the old DNS service address in resolv.conf
 func (r *Services) Execute(context.Context) error {
 	services := r.client.Services(metav1.NamespaceSystem)
 	_, err := services.Create(newDNSService(r.serviceName, dnsServiceSelector, r.serviceIP))

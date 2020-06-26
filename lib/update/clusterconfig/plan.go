@@ -28,6 +28,7 @@ import (
 
 	"github.com/gravitational/trace"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -80,7 +81,7 @@ func newOperationPlan(
 	servers []storage.Server,
 	services []v1.Service,
 ) (*storage.OperationPlan, error) {
-	builder := newBuilder(app.Package)
+	builder := newBuilder(app.Package, services)
 	updates, err := rollingupdate.RuntimeConfigUpdates(app.Manifest, operator, operation.Key(), servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -94,14 +95,13 @@ func newOperationPlan(
 	if !shouldUpdateNodes {
 		updateServers = masters
 	}
-	init := *builder.init("Initialize operation")
 	config := *builder.Config("Update runtime configuration", updateServers)
 	updateMasters := *builder.Masters(
 		masters,
 		"Update cluster configuration",
 		"Update configuration on node %q",
 	).Require(config)
-	phases := update.Phases{init, config, updateMasters}
+	phases := update.Phases{config, updateMasters}
 
 	if shouldUpdateNodes {
 		updateNodes := *builder.Nodes(
@@ -111,7 +111,7 @@ func newOperationPlan(
 		).Require(config, updateMasters)
 		phases = append(phases, updateNodes)
 	}
-	fini := *builder.fini("Finalize operation", init)
+	fini := *builder.fini("Finalize operation")
 	phases = append(phases, fini)
 
 	plan := &storage.OperationPlan{
@@ -134,8 +134,8 @@ func collectServices(client corev1.CoreV1Interface) (result []v1.Service, err er
 		return nil, rigging.ConvertError(err)
 	}
 	result = make([]v1.Service, 0, len(services.Items))
-	for _, service := range servces.Items {
-		if service.Spec.ServiceType != v1.ServiceTypeClusterIP {
+	for _, service := range services.Items {
+		if service.Spec.Type != v1.ServiceTypeClusterIP {
 			continue
 		}
 		result = append(result, service)
