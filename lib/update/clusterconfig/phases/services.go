@@ -3,41 +3,51 @@ package phases
 import (
 	"context"
 
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 // NewServices returns a new services step implementation
-func NewServices(params fsm.ExecutorParams, logger log.FieldLogger) (*Services, error) {
-	// TODO
-	return &Services{
-		FieldLogger: logger,
-	}, nil
+func NewServices(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger log.FieldLogger) (*Services, error) {
+	step := Services{
+		FieldLogger:       logger,
+		client:            client,
+		serviceName:       params.Phase.Data.Update.ClusterConfig.DNSServiceName,
+		workerServiceName: params.Phase.Data.Update.ClusterConfig.DNSWorkerServiceName,
+	}
+	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
+		if !isDNSService(service) {
+			step.services = append(step.services, service)
+			continue
+		}
+		if service.Name == dnsServiceName {
+			step.dnsService = service
+		} else {
+			step.dnsWorkerService = service
+		}
+	}
+	return &step, nil
 }
 
-// Execute reset the clusterIP for all the cluster services of type ClusterIP
-// except DNS services. For DNS, it will create a duplicate DNS service for each node role
-// using the new service subnet to avoid disrupting Pods running on nodes that have
-// not yet been upgraded and still have the old DNS service address in resolv.conf
+// Execute resets the clusterIP for all the cluster services of type ClusterIP
+// except DNS services.
+// It renames the existing DNS services to keep them available for nodes that have not
+// been upgraded to the new service subnet so the Pods scheduled on these nodes can still
+// resolve cluster addresses using the old DNS service
 func (r *Services) Execute(context.Context) error {
-	services := r.client.Services(metav1.NamespaceSystem)
-	_, err := services.Create(newDNSService(r.serviceName, dnsServiceSelector, r.serviceIP))
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return err
+	if err := r.renameDNSServices(); err != nil {
+		return trace.Wrap(err)
 	}
-	_, err = services.Create(newDNSService(r.workerServiceName, dnsWorkerServiceSelector, r.workerServiceIP))
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return err
+	if err := r.resetServices(); err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }
@@ -68,55 +78,77 @@ func (*Services) PostCheck(context.Context) error {
 	return nil
 }
 
-// Services implements the init step for the cluster configuration upgrade operation
+// Services implements the services step for the cluster configuration upgrade operation
 type Services struct {
 	log.FieldLogger
-	client            corev1.CoreV1Client
+	client            corev1.CoreV1Interface
 	serviceName       string
-	serviceIP         string
 	workerServiceName string
-	workerServiceIP   string
-	config            clusterconfig.Interface
+	dnsService        v1.Service
+	dnsWorkerService  v1.Service
+	services          []v1.Service
 }
 
-func newDNSService(name, selector, clusterIP string) *v1.Service {
-	return &v1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       constants.KindService,
-			APIVersion: constants.ServiceAPIVersion,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: metav1.NamespaceSystem,
-			Labels: map[string]string{
-				"k8s-app":                       selector,
-				"kubernetes.io/cluster-service": "true",
-				"kubernetes.io/name":            "CoreDNS",
-			},
-		},
-		Spec: v1.ServiceSpec{
-			Type: v1.ServiceTypeLoadBalancer,
-			Selector: map[string]string{
-				"k8s-app": selector,
-			},
-			Ports: []v1.ServicePort{
-				{
-					Name:     "dns",
-					Protocol: "udp",
-					Port:     53,
-				},
-				{
-					Name:     "dns-tcp",
-					Protocol: "tcp",
-					Port:     53,
-				},
-			},
-			ClusterIP: clusterIP,
-		},
+func (r *Services) renameDNSServices() error {
+	if err := r.renameService(r.dnsService, r.serviceName); err != nil {
+		return trace.Wrap(err)
 	}
+	if err := r.renameService(r.dnsWorkerService, r.workerServiceName); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (r *Services) renameService(service v1.Service, newName string) error {
+	services := r.client.Services(service.Namespace)
+	err := services.Delete(service.Name, &metav1.DeleteOptions{})
+	err = rigging.ConvertError(err)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	service.ResourceVersion = "0"
+	service.Name = newName
+	_, err = services.Create(&service)
+	if err != nil {
+		return rigging.ConvertError(err)
+	}
+	return nil
+}
+
+func (r *Services) resetServices() error {
+	for _, service := range r.services {
+		logger := r.WithField("service", formatMeta(&service))
+		services := r.client.Services(service.Namespace)
+		err := services.Delete(service.Name, &metav1.DeleteOptions{})
+		err = rigging.ConvertError(err)
+		if err != nil && !trace.IsNotFound(err) {
+			return err
+		}
+		logger.Info("Recreate service with empty cluster IP.")
+		// Let Kubernetes allocate cluster IP
+		service.Spec.ClusterIP = ""
+		_, err = services.Create(&service)
+		if err != nil {
+			return rigging.ConvertError(err)
+		}
+	}
+	return nil
+}
+
+func isDNSService(service v1.Service) bool {
+	return !(utils.StringInSlice(dnsServices, service.Name) && service.Namespace == metav1.NamespaceSystem)
+}
+
+func formatMeta(obj runtime.Object) string {
+	return obj.GetObjectKind().GroupVersionKind().String()
+}
+
+var dnsServices = []string{
+	dnsServiceName,
+	dnsWorkerServiceName,
 }
 
 const (
-	dnsServiceSelector       = "kube-dns"
-	dnsWorkerServiceSelector = "kube-dns-worker"
+	dnsServiceName       = "kube-dns"
+	dnsWorkerServiceName = "kube-dns-worker"
 )
