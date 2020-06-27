@@ -2,27 +2,12 @@
 set -eu -o pipefail
 
 readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
-
-# UPGRADE_MAP maps gravity version -> list of OS releases to upgrade from
-declare -A UPGRADE_MAP
-
-# latest patch release on compatible LTS, keep this up to date
-UPGRADE_MAP[7.0.10]="ubuntu:18"
-
-# latest patch release on compatible non-LTS versions
-# 6.2 and 6.3 ignored in PR builds per https://github.com/gravitational/gravity/pull/1760#pullrequestreview-437838773
-# UPGRADE_MAP[6.3.18]="ubuntu:18"
-# UPGRADE_MAP[6.2.5]="ubuntu:18"
-
-# important versions in the field, these are static
-UPGRADE_MAP[7.0.0]="ubuntu:16"
-
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
 readonly ROBOTEST_SCRIPT=$(mktemp -d)/runsuite.sh
 
-# number of environment variables are expected to be set
-# see https://github.com/gravitational/robotest/blob/master/suite/README.md
+# a number of environment variables are expected to be set
+# see https://github.com/gravitational/robotest/blob/v2.0.0/suite/README.md
 export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.0.0}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export WAIT_FOR_INSTALLER=true
@@ -30,7 +15,7 @@ export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
 export GRAVITY_URL=$GRAVITY_BUILDDIR/gravity
 export TAG=$(git rev-parse --short HEAD)
 # cloud provider that test clusters will be provisioned on
-# see https://github.com/gravitational/robotest/blob/master/infra/gravity/config.go#L72
+# see https://github.com/gravitational/robotest/blob/v2.0.0/infra/gravity/config.go#L72
 export DEPLOY_TO=${DEPLOY_TO:-gce}
 export GCL_PROJECT_ID=${GCL_PROJECT_ID:-"kubeadm-167321"}
 export GCE_REGION="northamerica-northeast1,us-west1,us-east1,us-east4,us-central1"
@@ -41,12 +26,21 @@ export GCE_VM=${GCE_VM:-custom-4-8192}
 export PARALLEL_TESTS=${PARALLEL_TESTS:-4}
 export REPEAT_TESTS=${REPEAT_TESTS:-1}
 
-function build_resize_suite {
-  cat <<EOF
- resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
- shrink={"nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
-EOF
-}
+# UPGRADE_MAP maps gravity version -> list of linux distros to upgrade from
+declare -A UPGRADE_MAP
+# GIT_VERSION_BRANCH_PREFIX may be redefined as not everyone uses "origin" as their remote name
+readonly GIT_VERSION_BRANCH_PREFIX=${GIT_VERSION_BRANCH_PREFIX:-remotes/origin/version}
+readonly LAST_BRANCH_RELEASE=$(git describe --abbrev=0 HEAD^)
+UPGRADE_MAP[$LAST_BRANCH_RELEASE]="ubuntu:18" # latest release on this branch
+readonly LAST_7_0_RELEASE=$(git describe --abbrev=0 ${GIT_VERSION_BRANCH_PREFIX}/7.0.x)
+UPGRADE_MAP[$LAST_7_0_RELEASE]="ubuntu:18" # latest release on compatible LTS
+# 6.2 and 6.3 ignored in PR builds per https://github.com/gravitational/gravity/pull/1760#pullrequestreview-437838773
+readonly LAST_6_3_RELEASE=$(git describe --abbrev=0 ${GIT_VERSION_BRANCH_PREFIX}/6.3.x)
+UPGRADE_MAP[$LAST_6_3_RELEASE]="ubuntu:18" # latest release on compatible non-LTS version
+readonly LAST_6_2_RELEASE=$(git describe --abbrev=0 ${GIT_VERSION_BRANCH_PREFIX}/6.2.x)
+UPGRADE_MAP[$LAST_6_2_RELEASE]="ubuntu:18" # latest release on compatible non-LTS version
+# important versions in the field
+UPGRADE_MAP[7.0.0]="ubuntu:16"
 
 function build_upgrade_step {
   local usage="$FUNCNAME os release storage-driver cluster-size"
@@ -74,6 +68,14 @@ function build_upgrade_suite {
   done
   echo $suite
 }
+
+function build_resize_suite {
+  cat <<EOF
+ resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
+ shrink={"nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
+EOF
+}
+
 
 function build_ops_install_suite {
   local suite=$(cat <<EOF

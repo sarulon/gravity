@@ -2,28 +2,10 @@
 set -eu -o pipefail
 
 readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
-
-DOCKER_STORAGE_DRIVERS="overlay2"
-
-# UPGRADE_MAP maps gravity version -> list of OS releases to upgrade from
-declare -A UPGRADE_MAP
-
-# latest patch release on compatible LTS, keep this up to date
-UPGRADE_MAP[7.0.10]="centos:7 debian:9 ubuntu:18"
-
-# latest patch release on compatible non-LTS versions
-UPGRADE_MAP[6.3.18]="centos:7 debian:9 ubuntu:18"
-UPGRADE_MAP[6.2.5]="centos:7 debian:9 ubuntu:18"
-
-# important versions in the field, these are static
-UPGRADE_MAP[7.0.0]="ubuntu:16"
-# UPGRADE_MAP[6.3.0]="ubuntu:16"  # disabled due to https://github.com/gravitational/gravity/issues/1009
-# UPGRADE_MAP[6.2.0]="ubuntu:16"  # pretty close to 6.2.5, no need to test both
-
-
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
 readonly ROBOTEST_SCRIPT=$(mktemp -d)/runsuite.sh
+readonly DOCKER_STORAGE_DRIVERS="overlay2"
 
 # number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/master/suite/README.md
@@ -45,13 +27,23 @@ export GCE_VM=${GCE_VM:-custom-4-8192}
 export PARALLEL_TESTS=${PARALLEL_TESTS:-4}
 export REPEAT_TESTS=${REPEAT_TESTS:-1}
 
-function build_resize_suite {
-  cat <<EOF
- resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
- resize={"to":6,"flavor":"three","nodes":3,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
- shrink={"nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
-EOF
-}
+# UPGRADE_MAP maps gravity version -> list of linux distros to upgrade from
+declare -A UPGRADE_MAP
+# GIT_VERSION_BRANCH_PREFIX may be redefined as not everyone uses "origin" as their remote name
+readonly GIT_VERSION_BRANCH_PREFIX=${GIT_VERSION_BRANCH_PREFIX:-remotes/origin/version}
+readonly LAST_BRANCH_RELEASE=$(git describe --abbrev=0 HEAD^)
+UPGRADE_MAP[$LAST_BRANCH_RELEASE]="centos:7 debian:9 ubuntu:18" # latest release on this branch
+readonly LAST_7_0_RELEASE=$(git describe --abbrev=0 ${GIT_VERSION_BRANCH_PREFIX}/7.0.x)
+UPGRADE_MAP[$LAST_7_0_RELEASE]="centos:7 debian:9 ubuntu:18" # latest release on compatible LTS
+# 6.2 and 6.3 ignored in PR builds per https://github.com/gravitational/gravity/pull/1760#pullrequestreview-437838773
+readonly LAST_6_3_RELEASE=$(git describe --abbrev=0 ${GIT_VERSION_BRANCH_PREFIX}/6.3.x)
+UPGRADE_MAP[$LAST_6_3_RELEASE]="redhat:7" # latest release on compatible non-LTS version
+readonly LAST_6_2_RELEASE=$(git describe --abbrev=0 ${GIT_VERSION_BRANCH_PREFIX}/6.2.x)
+UPGRADE_MAP[$LAST_6_2_RELEASE]="redhat:7" # latest release on compatible non-LTS version
+# important versions in the field
+UPGRADE_MAP[7.0.0]="ubuntu:16"
+# UPGRADE_MAP[6.3.0]="ubuntu:16"  # disabled due to https://github.com/gravitational/gravity/issues/1009
+# UPGRADE_MAP[6.2.0]="ubuntu:16"  # pretty close to 6.2.5, no need to test both
 
 function build_upgrade_step {
   local usage="$FUNCNAME os release storage-driver cluster-size"
@@ -73,6 +65,7 @@ function build_upgrade_suite {
     '"flavor":"three","nodes":3,"role":"node"' \
     '"flavor":"six","nodes":6,"role":"node"' \
     '"flavor":"one","nodes":1,"role":"node"')
+  local default_size='"flavor":"three","nodes":3,"role":"node"'
   for release in ${!UPGRADE_MAP[@]}; do
     for os in ${UPGRADE_MAP[$release]}; do
       for size in ${cluster_sizes[@]}; do
@@ -82,6 +75,14 @@ function build_upgrade_suite {
     done
   done
   echo $suite
+}
+
+function build_resize_suite {
+  cat <<EOF
+ resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
+ resize={"to":6,"flavor":"three","nodes":3,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
+ shrink={"nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
+EOF
 }
 
 function build_ops_install_suite {
