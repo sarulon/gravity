@@ -5,7 +5,6 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
 readonly ROBOTEST_SCRIPT=$(mktemp -d)/runsuite.sh
-readonly DOCKER_STORAGE_DRIVERS="overlay2"
 
 # number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/master/suite/README.md
@@ -98,14 +97,12 @@ function build_install_suite {
     '"flavor":"three","nodes":3,"role":"node"' \
     '"flavor":"six","nodes":6,"role":"node"')
   for os in $test_os; do
-    for storage_driver in ${DOCKER_STORAGE_DRIVERS[@]}; do
-      for size in ${cluster_sizes[@]}; do
-        suite+=$(cat <<EOF
- install={${size},"os":"${os}","storage_driver":"${storage_driver}"}
+    for size in ${cluster_sizes[@]}; do
+      suite+=$(cat <<EOF
+ install={${size},"os":"${os}","storage_driver":"overlay2"}
 EOF
-        suite+=' '
 )
-      done
+      suite+=' '
     done
   done
   suite+=$(build_ops_install_suite)
