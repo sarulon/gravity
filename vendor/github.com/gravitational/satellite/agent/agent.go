@@ -35,9 +35,9 @@ import (
 	"github.com/gravitational/satellite/lib/membership"
 	"github.com/gravitational/satellite/lib/rpc/client"
 	"github.com/gravitational/satellite/utils"
+	"github.com/mailgun/holster"
 
 	"github.com/gravitational/trace"
-	"github.com/gravitational/ttlmap"
 	serf "github.com/hashicorp/serf/client"
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
@@ -173,7 +173,7 @@ type agent struct {
 	// specific cluster member.
 	// The last seen timestamp can be queried by a member and be used to
 	// filter out events that have already been recorded by this agent.
-	lastSeen *ttlmap.TTLMap
+	lastSeen *holster.TTLMap
 
 	// cancel is used to cancel the internal processes
 	// running as part of g
@@ -219,7 +219,7 @@ func New(config *Config) (*agent, error) {
 	// Only initialize cluster timeline for master nodes.
 	var (
 		clusterTimeline history.Timeline
-		lastSeen        *ttlmap.TTLMap
+		lastSeen        *holster.TTLMap
 	)
 	if role, ok := config.Tags["role"]; ok && Role(role) == RoleMaster {
 		clusterTimeline, err = initTimeline(config.TimelineConfig, "cluster.db")
@@ -227,7 +227,7 @@ func New(config *Config) (*agent, error) {
 			return nil, trace.Wrap(err, "failed to initialize timeline")
 		}
 
-		lastSeen = ttlmap.NewTTLMap(lastSeenCapacity)
+		lastSeen = holster.NewTTLMap(lastSeenCapacity)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

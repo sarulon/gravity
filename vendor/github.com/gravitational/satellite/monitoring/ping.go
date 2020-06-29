@@ -26,10 +26,10 @@ import (
 	"github.com/gravitational/satellite/agent"
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
+	"github.com/mailgun/holster"
 
 	"github.com/codahale/hdrhistogram"
 	"github.com/gravitational/trace"
-	"github.com/gravitational/ttlmap"
 	serf "github.com/hashicorp/serf/client"
 	log "github.com/sirupsen/logrus"
 )
@@ -64,7 +64,7 @@ type pingChecker struct {
 	self           serf.Member
 	serfClient     agent.SerfClient
 	serfMemberName string
-	latencyStats   ttlmap.TTLMap
+	latencyStats   holster.TTLMap
 	mux            sync.Mutex
 	logger         log.FieldLogger
 }
@@ -100,7 +100,7 @@ func NewPingChecker(conf PingCheckerConfig) (c health.Checker, err error) {
 		return nil, trace.Wrap(err)
 	}
 
-	latencyTTLMap := ttlmap.NewTTLMap(latencyStatsCapacity)
+	latencyTTLMap := holster.NewTTLMap(latencyStatsCapacity)
 
 	client, err := conf.NewSerfClient(serf.Config{
 		Addr: conf.SerfRPCAddr,
