@@ -9,15 +9,16 @@ function semver_to_tarball {
 }
 
 function build_upgrade_step {
-  local usage="$FUNCNAME os release storage-driver cluster-size"
-  local os=${1:?$usage}
-  local release=${2:?$usage}
-  local storage_driver=${3:?$usage}
+  local usage="$FUNCNAME from_tarball to_tarball os cluster-size"
+  local from_tarball=${1:?$usage}
+  local to_tarball=${2:?$usage}
+  local os=${3:?$usage}
   local cluster_size=${4:?$usage}
+  local storage_driver='"storage_driver":"overlay2"'
   local service_opts='"service_uid":997,"service_gid":994' # see issue #1279
   local suite=''
   suite+=$(cat <<EOF
- upgrade={${cluster_size},${service_opts},"os":"${os}","storage_driver":"${storage_driver}","from":"/$(semver_to_tarball ${release})"}
+ upgrade={${cluster_size},"os":"${os}","from":"$from_tarball","installer_url":"$to_tarball",${service_opts},${storage_driver}}
 EOF
 )
   echo $suite

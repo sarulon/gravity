@@ -20,17 +20,20 @@ UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
 
 source $(dirname $0)/utils.sh
 
-function build_upgrade_suite {
+function build_upgrade_to_suite {
   local suite=''
+  local to_tarball='/installer/telekube.tar'
   local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   for release in ${!UPGRADE_MAP[@]}; do
+    local from_tarball=/$(semver_to_tarball $release)
     for os in ${UPGRADE_MAP[$release]}; do
-      suite+=$(build_upgrade_step $os $release 'overlay2' $cluster_size)
+      suite+=$(build_upgrade_step $from_tarball $to_tarball $os $cluster_size)
       suite+=' '
     done
   done
   echo -n $suite
 }
+
 
 function build_resize_suite {
   local suite=$(cat <<EOF
@@ -62,9 +65,9 @@ EOF
   echo -n $suite
 }
 
-SUITE=$(build_resize_suite)
-SUITE="$SUITE $(build_upgrade_suite)"
-SUITE="$SUITE $(build_install_suite)"
+SUITE=$(build_install_suite)
+SUITE="$SUITE $(build_resize_suite)"
+SUITE="$SUITE $(build_upgrade_to_suite)"
 
 echo "$SUITE"
 

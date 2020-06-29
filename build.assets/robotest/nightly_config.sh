@@ -23,23 +23,28 @@ source $(dirname $0)/utils.sh
 
 function build_upgrade_size_suite {
   local suite=''
+  local from_tarball=/$(semver_to_tarball $LATEST_7_0_RELEASE)
+  local to_tarball='/installer/telekube.tar'
+  local os="redhat:7"
   local cluster_sizes=( \
     '"flavor":"three","nodes":3,"role":"node"' \
     '"flavor":"six","nodes":6,"role":"node"' \
     '"flavor":"one","nodes":1,"role":"node"')
   for size in ${cluster_sizes[@]}; do
-      suite+=$(build_upgrade_step "redhat:7" "$LATEST_7_0_RELEASE" "overlay2" $size)
+      suite+=$(build_upgrade_step $from_tarball $to_tarball $os $size)
     suite+=' '
   done
   echo -n $suite
 }
 
-function build_upgrade_version_suite {
+function build_upgrade_to_suite {
   local suite=''
-  local default_size='"flavor":"three","nodes":3,"role":"node"'
+  local to_tarball='/installer/telekube.tar'
+  local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   for release in ${!UPGRADE_MAP[@]}; do
+    local from_tarball=/$(semver_to_tarball $release)
     for os in ${UPGRADE_MAP[$release]}; do
-      suite+=$(build_upgrade_step $os $release "overlay2" $default_size)
+      suite+=$(build_upgrade_step $from_tarball $to_tarball $os $cluster_size)
       suite+=' '
     done
   done
@@ -85,7 +90,7 @@ EOF
 
 SUITE="$(build_install_suite)"
 SUITE+=" $(build_resize_suite)"
-SUITE+=" $(build_upgrade_version_suite)"
+SUITE+=" $(build_upgrade_to_suite)"
 SUITE+=" $(build_upgrade_size_suite)"
 
 echo "$SUITE"
